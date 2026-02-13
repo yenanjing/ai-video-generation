@@ -20,69 +20,92 @@ An intelligent multi-stage AI video generation pipeline that creates videos from
 
 ## 🚀 Quick Start
 
-### 1. Install
+### Option 1: Web UI (Recommended)
+
+```bash
+# Install dependencies
+pip install -r requirements.txt -r requirements-api.txt
+brew install ffmpeg  # macOS (or sudo apt install ffmpeg for Ubuntu)
+
+# Configure API keys
+cp .env.example .env
+# Edit .env with your API keys
+
+# Start development environment
+./start_dev.sh
+```
+
+Then open http://localhost:3000 in your browser.
+
+### Option 2: API Server
+
+```bash
+# Start FastAPI server
+uvicorn video_api.main:app --reload
+
+# Access API docs
+open http://localhost:8000/docs
+```
+
+### Option 3: CLI
 
 ```bash
 # Install dependencies
 pip install -r requirements.txt
-
-# Install FFmpeg
 brew install ffmpeg  # macOS
-sudo apt install ffmpeg  # Ubuntu
-```
 
-### 2. Configure
-
-```bash
-# Create .env file
+# Configure
 cp .env.example .env
+# Edit .env and add your API keys
 
-# Edit .env and add your API keys:
-# ANTHROPIC_API_KEY=sk-ant-xxx
-# REPLICATE_API_TOKEN=r8_xxx
-```
-
-Get API keys:
-- Anthropic: https://console.anthropic.com/
-- Replicate: https://replicate.com/account/api-tokens
-
-### 3. Verify
-
-```bash
-python check_readiness.py
-```
-
-### 4. Generate!
-
-```bash
+# Generate video
 python -m video_engine.cli generate "A peaceful forest at sunrise"
 ```
 
 ## 📖 Documentation
 
-- **[QUICKSTART.md](QUICKSTART.md)** - Detailed setup and usage guide
-- **[README_VIDEO.md](README_VIDEO.md)** - Complete system documentation
-- **[COMMANDS.md](COMMANDS.md)** - Command reference
-- **[IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md)** - Development status
+- **[DEPLOYMENT.md](DEPLOYMENT.md)** - Production deployment guide
+- **[PHASE3_COMPLETE.md](PHASE3_COMPLETE.md)** - React frontend documentation
+- **[PROJECT_COMPLETE.md](PROJECT_COMPLETE.md)** - Complete project overview
+- **[README_VIDEO.md](README_VIDEO.md)** - Detailed system documentation
+- **API Docs**: http://localhost:8000/docs (when running)
 
 ## 💡 Examples
 
-### Text-to-Video
+### Web UI
 ```bash
+./start_dev.sh
+# Open http://localhost:3000
+# Enter prompt, select model, watch real-time progress
+```
+
+### REST API
+```bash
+# Create video generation job
+curl -X POST http://localhost:8000/api/v1/jobs \
+  -H "Content-Type: application/json" \
+  -d '{"user_prompt": "Ocean waves at sunset", "model_id": "replicate:svd-xt"}'
+
+# Get job status
+curl http://localhost:8000/api/v1/jobs/{job_id}
+
+# List all jobs
+curl http://localhost:8000/api/v1/jobs
+```
+
+### CLI
+```bash
+# Text-to-video
 python -m video_engine.cli generate "Ocean waves at sunset" --output ocean.mp4
-```
 
-### Generate Storyboard Only
-```bash
+# Generate storyboard only
 python -m video_engine.cli storyboard "Space journey" --output story.json
+
+# List available models
+python -m video_engine.cli list-models
 ```
 
-### Image-to-Video
-```bash
-python -m video_engine.cli generate "Scene comes alive" --reference-image photo.jpg
-```
-
-### Programmatic Usage
+### Python API
 ```python
 from video_engine import VideoOrchestrator
 
@@ -95,15 +118,31 @@ print(f"Video: {job.output_video_path}")
 ## 🏗️ Architecture
 
 ```
-User Prompt
-    ↓
-Claude LLM (Storyboard Generation)
-    ↓
-Video Models (Shot Generation)
-    ↓
-FFmpeg (Video Concatenation)
-    ↓
-Final Video
+┌─────────────────────────────────────────────┐
+│         React Frontend (Phase 3)            │
+│  Real-time UI with WebSocket updates       │
+└────────────────┬────────────────────────────┘
+                 │ REST API + WebSocket
+                 ▼
+┌─────────────────────────────────────────────┐
+│       FastAPI Backend (Phase 2)             │
+│  REST endpoints, WebSocket, Background jobs │
+└────────────────┬────────────────────────────┘
+                 │
+                 ▼
+┌─────────────────────────────────────────────┐
+│      Video Generation Engine (Phase 1)     │
+│                                              │
+│  User Prompt                                │
+│       ↓                                      │
+│  Claude LLM (Storyboard)                    │
+│       ↓                                      │
+│  Model Adapter (Replicate/HF/Local)         │
+│       ↓                                      │
+│  FFmpeg (Concatenation)                     │
+│       ↓                                      │
+│  Final Video                                │
+└─────────────────────────────────────────────┘
 ```
 
 ## 📁 Project Structure
@@ -113,34 +152,71 @@ ai-video/
 ├── video_engine/          # Core video generation engine
 │   ├── cli.py            # Command-line interface
 │   ├── config.py         # Configuration
-│   ├── core/             # Orchestration
-│   ├── llm/              # LLM clients
-│   ├── models/           # Model adapters
-│   ├── storage/          # Persistence
-│   └── utils/            # Video utilities
+│   ├── core/             # Orchestration & job management
+│   ├── llm/              # LLM clients (Claude, OpenAI)
+│   ├── models/           # Model adapters & registry
+│   ├── storage/          # Job store & file management
+│   └── utils/            # Video utilities (FFmpeg)
+├── video_api/            # FastAPI backend
+│   ├── main.py           # API application
+│   ├── routes/           # REST endpoints
+│   ├── schemas/          # Request/response models
+│   └── websocket_manager.py  # WebSocket handling
+├── video_ui/             # React frontend
+│   ├── src/
+│   │   ├── components/   # React components
+│   │   ├── hooks/        # WebSocket & custom hooks
+│   │   ├── services/     # API client
+│   │   └── types/        # TypeScript types
+│   └── public/           # Static assets
 ├── workspace/            # Generated videos & jobs
-├── examples/             # Example scripts
 ├── tests/                # Test suite
-└── docs/                 # Documentation
+├── start_dev.sh          # Development startup script
+├── Dockerfile            # Docker configuration
+└── docker-compose.yml    # Docker Compose setup
 ```
 
 ## ⚡ CLI Commands
 
 ```bash
-# Generate video
-python -m video_engine.cli generate "Your prompt"
+# Generate video from prompt
+python -m video_engine.cli generate "Your prompt" --output video.mp4
 
-# Generate storyboard
-python -m video_engine.cli storyboard "Your prompt"
+# Generate storyboard only
+python -m video_engine.cli storyboard "Your prompt" --output story.json
 
-# List models
+# List available models
 python -m video_engine.cli list-models
 
-# List jobs
+# List all jobs
 python -m video_engine.cli list-jobs
 
-# Check system
-python check_readiness.py
+# Get job details
+python -m video_engine.cli get-job <job_id>
+```
+
+## 🌐 API Endpoints
+
+```bash
+# Health check
+GET /api/v1/health
+
+# Models
+GET /api/v1/models
+GET /api/v1/models/{model_id}
+
+# Jobs
+POST   /api/v1/jobs          # Create job
+GET    /api/v1/jobs          # List jobs
+GET    /api/v1/jobs/{id}     # Get job
+DELETE /api/v1/jobs/{id}     # Delete job
+
+# Files
+POST /api/v1/upload           # Upload file
+GET  /api/v1/files/{id}       # Download file
+
+# WebSocket
+WS /ws/jobs/{job_id}          # Real-time progress
 ```
 
 ## 🎯 Current Status
@@ -153,17 +229,20 @@ python check_readiness.py
 - Job management
 - Progress tracking
 
-### 🚧 Phase 2: API Backend (Planned)
+### ✅ Phase 2: API Backend (COMPLETE)
 - FastAPI REST endpoints
 - WebSocket progress streaming
 - Background job queue
 - File upload handling
+- API documentation (Swagger)
 
-### 📋 Phase 3: React Frontend (Planned)
-- Web UI with real-time updates
-- Storyboard editor
+### ✅ Phase 3: React Frontend (COMPLETE)
+- React + TypeScript web application
+- Real-time progress updates
+- WebSocket integration
 - Video player
-- Model selection
+- Storyboard viewer
+- Job history management
 
 ## 💰 Cost Estimates
 
